@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoClip AI — Content Producer Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.8/index.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.6/index.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        dark: { 50: '#f8fafc', 100: '#e2e8f0', 200: '#94a3b8', 300: '#64748b', 400: '#475569', 500: '#334155', 600: '#1e293b', 700: '#1a2332', 800: '#111827', 900: '#0b1120', 950: '#060a14' },
+                        brand: { 50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 800: '#3730a3', 900: '#312e81' },
+                        neon: { green: '#22c55e', red: '#ef4444', yellow: '#eab308', cyan: '#06b6d4', pink: '#ec4899', orange: '#f97316' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { scrollbar-width: thin; scrollbar-color: #334155 #0b1120; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b1120; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(99, 102, 241, 0.1); }
+        .glass-card { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(12px); border: 1px solid rgba(99, 102, 241, 0.08); }
+        .glow { box-shadow: 0 0 20px rgba(99, 102, 241, 0.15); }
+        .glow-green { box-shadow: 0 0 15px rgba(34, 197, 94, 0.2); }
+        .glow-red { box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
+        .pulse-dot { animation: pulse-dot 2s infinite; }
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .tab-active { background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.1)); border-color: rgba(99, 102, 241, 0.5); color: #e0e7ff !important; }
+        .progress-bar { transition: width 1s ease-in-out; }
+        .hover-lift { transition: transform 0.2s, box-shadow 0.2s; }
+        .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
+        .status-badge { font-size: 0.65rem; letter-spacing: 0.05em; }
+        .timeline-line { background: linear-gradient(to bottom, rgba(99,102,241,0.3), rgba(99,102,241,0.05)); }
+        input, select, textarea { background: rgba(15, 23, 42, 0.8) !important; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .kanban-col { min-height: 400px; }
+        .pipe-card { transition: all 0.2s; cursor: grab; }
+        .pipe-card:hover { transform: translateY(-1px); }
+        .modal-backdrop { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
+        details > summary { list-style: none; cursor: pointer; }
+        details > summary::-webkit-details-marker { display: none; }
+    </style>
+</head>
+<body class="bg-dark-900 text-dark-100 font-sans min-h-screen overflow-hidden">
+
+    <!-- Background Effects -->
+    <div class="fixed inset-0 pointer-events-none">
+        <div class="absolute top-0 left-1/4 w-96 h-96 bg-brand-600/5 rounded-full blur-3xl"></div>
+        <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-600/5 rounded-full blur-3xl"></div>
+        <div class="absolute top-1/2 left-1/2 w-64 h-64 bg-cyan-600/3 rounded-full blur-3xl"></div>
+    </div>
+
+    <div class="flex h-screen relative z-10">
+        <!-- Sidebar -->
+        <aside class="w-64 glass border-r border-dark-500/30 flex flex-col flex-shrink-0">
+            <div class="p-5 border-b border-dark-500/30">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center glow">
+                        <i class="fas fa-bolt text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold bg-gradient-to-r from-brand-300 to-purple-300 bg-clip-text text-transparent">AutoClip AI</h1>
+                        <p class="text-[0.6rem] text-dark-200 uppercase tracking-widest">Content Producer</p>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+                <button onclick="switchTab('dashboard')" data-tab="dashboard" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all tab-active">
+                    <i class="fas fa-chart-line w-5 text-center text-brand-400"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button onclick="switchTab('pipeline')" data-tab="pipeline" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all text-dark-200 hover:bg-dark-600/50">
+                    <i class="fas fa-film w-5 text-center"></i>
+                    <span>Content Pipeline</span>
+                </button>
+                <button onclick="switchTab('trends')" data-tab="trends" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all text-dark-200 hover:bg-dark-600/50">
+                    <i class="fas fa-fire w-5 text-center"></i>
+                    <span>Trend Analysis</span>
+                </button>
+                <button onclick="switchTab('accounts')" data-tab="accounts" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all text-dark-200 hover:bg-dark-600/50">
+                    <i class="fas fa-users w-5 text-center"></i>
+                    <span>Account Manager</span>
+                </button>
+                <button onclick="switchTab('queue')" data-tab="queue" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all text-dark-200 hover:bg-dark-600/50">
+                    <i class="fas fa-calendar-alt w-5 text-center"></i>
+                    <span>Post Queue</span>
+                </button>
+                <button onclick="switchTab('safety')" data-tab="safety" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all text-dark-200 hover:bg-dark-600/50">
+                    <i class="fas fa-shield-alt w-5 text-center"></i>
+                    <span>Safety & Compliance</span>
+                </button>
+                <button onclick="switchTab('json')" data-tab="json" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all text-dark-200 hover:bg-dark-600/50">
+                    <i class="fas fa-code w-5 text-center"></i>
+                    <span>API Payload</span>
+                </button>
+            </nav>
+
+            <div class="p-4 border-t border-dark-500/30">
+                <div class="glass-card rounded-xl p-3">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-2 h-2 rounded-full bg-neon-green pulse-dot"></div>
+                        <span class="text-xs text-neon-green font-medium">System Online</span>
+                    </div>
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-[0.65rem]">
+                            <span class="text-dark-200">API Rate</span>
+                            <span class="text-dark-100">47/100</span>
+                        </div>
+                        <div class="w-full h-1 bg-dark-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-brand-500 to-purple-500 rounded-full progress-bar" style="width: 47%"></div>
+                        </div>
+                        <div class="flex justify-between text-[0.65rem]">
+                            <span class="text-dark-200">Queue Load</span>
+                            <span class="text-dark-100">12/50</span>
+                        </div>
+                        <div class="w-full h-1 bg-dark-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-neon-cyan to-brand-500 rounded-full progress-bar" style="width: 24%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto">
+            <header class="sticky top-0 z-20 glass border-b border-dark-500/30 px-6 py-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 id="page-title" class="text-xl font-bold">Dashboard Overview</h2>
+                        <p id="page-subtitle" class="text-xs text-dark-200 mt-0.5">Real-time content production metrics</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="relative">
+                            <input type="text" placeholder="Search content..." class="w-64 pl-9 pr-4 py-2 rounded-xl border border-dark-500/30 text-sm focus:outline-none focus:border-brand-500/50 transition-colors">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-dark-300 text-sm"></i>
+                        </div>
+                        <button class="relative p-2 rounded-xl border border-dark-500/30 hover:bg-dark-600/50 transition-colors">
+                            <i class="fas fa-bell text-dark-200"></i>
+                            <span class="absolute -top-1 -right-1 w-4 h-4 bg-neon-red rounded-full text-[0.55rem] flex items-center justify-center font-bold">3</span>
+                        </button>
+                        <button onclick="openCreateModal()" class="px-4 py-2 bg-gradient-to-r from-brand-600 to-purple-600 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-2">
+                            <i class="fas fa-plus"></i>
+                            <span>New Content</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="p-6">
+                <!-- DASHBOARD TAB -->
+                <div id="tab-dashboard" class="tab-content active slide-in">
+                    <div class="grid grid-cols-4 gap-4 mb-6">
+                        <div class="glass-card rounded-2xl p-5 hover-lift">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-10 h-10 rounded-xl bg-brand-500/10 flex items-center justify-center"><i class="fas fa-video text-brand-400"></i></div>
+                                <span class="text-[0.65rem] text-neon-green font-medium bg-neon-green/10 px-2 py-0.5 rounded-full">+12%</span>
+                            </div>
+                            <p class="text-2xl font-bold">247</p>
+                            <p class="text-xs text-dark-200 mt-1">Videos Produced</p>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5 hover-lift">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-10 h-10 rounded-xl bg-neon-green/10 flex items-center justify-center"><i class="fas fa-paper-plane text-neon-green"></i></div>
+                                <span class="text-[0.65rem] text-neon-green font-medium bg-neon-green/10 px-2 py-0.5 rounded-full">+8%</span>
+                            </div>
+                            <p class="text-2xl font-bold">189</p>
+                            <p class="text-xs text-dark-200 mt-1">Auto-Posted</p>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5 hover-lift">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-10 h-10 rounded-xl bg-neon-cyan/10 flex items-center justify-center"><i class="fas fa-eye text-neon-cyan"></i></div>
+                                <span class="text-[0.65rem] text-neon-green font-medium bg-neon-green/10 px-2 py-0.5 rounded-full">+34%</span>
+                            </div>
+                            <p class="text-2xl font-bold">2.4M</p>
+                            <p class="text-xs text-dark-200 mt-1">Total Views</p>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5 hover-lift">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-10 h-10 rounded-xl bg-neon-pink/10 flex items-center justify-center"><i class="fas fa-shield-alt text-neon-pink"></i></div>
+                                <span class="text-[0.65rem] text-neon-green font-medium bg-neon-green/10 px-2 py-0.5 rounded-full">100%</span>
+                            </div>
+                            <p class="text-2xl font-bold">0</p>
+                            <p class="text-xs text-dark-200 mt-1">Compliance Flags</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="col-span-2 glass-card rounded-2xl p-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-semibold">Content Performance</h3>
+                                <div class="flex gap-2">
+                                    <button class="px-3 py-1 text-xs rounded-lg bg-brand-500/20 text-brand-300">7D</button>
+                                    <button class="px-3 py-1 text-xs rounded-lg text-dark-200 hover:bg-dark-600/50">30D</button>
+                                    <button class="px-3 py-1 text-xs rounded-lg text-dark-200 hover:bg-dark-600/50">90D</button>
+                                </div>
+                            </div>
+                            <canvas id="performanceChart" height="180"></canvas>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5">
+                            <h3 class="font-semibold mb-4">Platform Split</h3>
+                            <canvas id="platformChart" height="180"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="glass-card rounded-2xl p-5">
+                            <h3 class="font-semibold mb-4">Recent Activity</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-neon-green/10 flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-check text-neon-green text-xs"></i></div>
+                                    <div>
+                                        <p class="text-sm">Posted to <span class="text-brand-300 font-medium">@TechVibes</span></p>
+                                        <p class="text-xs text-dark-200">"5 AI Tools That Will Blow Your Mind" • YouTube Shorts</p>
+                                        <p class="text-[0.65rem] text-dark-300 mt-1">2 minutes ago</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-magic text-brand-400 text-xs"></i></div>
+                                    <div>
+                                        <p class="text-sm">Video generated — <span class="text-purple-300 font-medium">Runway ML</span></p>
+                                        <p class="text-xs text-dark-200">1080p • 9:16 • 32s duration • Captions applied</p>
+                                        <p class="text-[0.65rem] text-dark-300 mt-1">15 minutes ago</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-neon-yellow/10 flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-fire text-neon-yellow text-xs"></i></div>
+                                    <div>
+                                        <p class="text-sm">Trend detected — <span class="text-neon-yellow font-medium">#AIArt</span></p>
+                                        <p class="text-xs text-dark-200">Engagement spike: +280% in last 6 hours</p>
+                                        <p class="text-[0.65rem] text-dark-300 mt-1">42 minutes ago</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-neon-cyan/10 flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-shield-alt text-neon-cyan text-xs"></i></div>
+                                    <div>
+                                        <p class="text-sm">Copyright scan passed — <span class="text-neon-cyan font-medium">Triple-check OK</span></p>
+                                        <p class="text-xs text-dark-200">Audio: CC-BY • Visuals: Original AI-generated</p>
+                                        <p class="text-[0.65rem] text-dark-300 mt-1">1 hour ago</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-semibold">Upcoming Posts</h3>
+                                <button onclick="switchTab('queue')" class="text-xs text-brand-400 hover:text-brand-300">View All →</button>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-3 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-600/30 to-purple-600/30 flex items-center justify-center"><i class="fab fa-tiktok text-lg"></i></div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium truncate">Morning Motivation Clip</p>
+                                        <p class="text-xs text-dark-200">@MindsetDaily • TikTok</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-xs font-mono text-brand-300">08:00</p>
+                                        <p class="text-[0.6rem] text-dark-300">in 42m</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-neon-red/20 to-neon-orange/20 flex items-center justify-center"><i class="fab fa-youtube text-lg text-neon-red"></i></div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium truncate">3 Productivity Hacks (Explained)</p>
+                                        <p class="text-xs text-dark-200">@TechVibes • YT Shorts</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-xs font-mono text-brand-300">10:30</p>
+                                        <p class="text-[0.6rem] text-dark-300">in 3h 12m</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-neon-pink/20 to-purple-600/20 flex items-center justify-center"><i class="fab fa-instagram text-lg text-neon-pink"></i></div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium truncate">Behind-the-Scenes: Neural Art</p>
+                                        <p class="text-xs text-dark-200">@ArtByNeural • IG Reels</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-xs font-mono text-brand-300">14:15</p>
+                                        <p class="text-[0.6rem] text-dark-300">in 6h 57m</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-neon-cyan/20 to-brand-600/20 flex items-center justify-center"><i class="fab fa-tiktok text-lg text-neon-cyan"></i></div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium truncate">Quick Coding Tip #47</p>
+                                        <p class="text-xs text-dark-200">@DevBytes • TikTok</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-xs font-mono text-brand-300">18:00</p>
+                                        <p class="text-[0.6rem] text-dark-300">in 10h 42m</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PIPELINE TAB -->
+                <div id="tab-pipeline" class="tab-content slide-in">
+                    <div class="grid grid-cols-5 gap-4">
+                        <!-- Column: Idea -->
+                        <div class="glass-card rounded-2xl p-4 kanban-col">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 rounded-full bg-neon-cyan"></div>
+                                    <h3 class="text-sm font-semibold">Ideas</h3>
+                                </div>
+                                <span class="text-xs text-dark-200">4</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">AI-generated cooking hacks compilation</p>
+                                    <p class="text-[0.6rem] text-dark-300 mt-1">from #AIArt trend</p>
+                                </div>
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">Explaining transformer models in 30s</p>
+                                    <p class="text-[0.6rem] text-dark-300 mt-1">trending topic</p>
+                                </div>
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">Morning routines of tech founders</p>
+                                    <p class="text-[0.6rem] text-dark-300 mt-1">evergreen</p>
+                                </div>
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">Space telescope images ranked</p>
+                                    <p class="text-[0.6rem] text-dark-300 mt-1">viral potential</p>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Column: Script -->
+                        <div class="glass-card rounded-2xl p-4 kanban-col">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 rounded-full bg-brand-400"></div>
+                                    <h3 class="text-sm font-semibold">Scripting</h3>
+                                </div>
+                                <span class="text-xs text-dark-200">3</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">5 AI Tools That Will Blow Your Mind</p>
+                                    <div class="flex items-center gap-1 mt-2">
+                                        <div class="h-1 flex-1 bg-dark-700 rounded-full overflow-hidden"><div class="h-full bg-brand-500 progress-bar" style="width:80%"></div></div>
+                                        <span class="text-[0.6rem] text-dark-300">80%</span>
+                                    </div>
+                                </div>
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">Neural network visualization primer</p>
+                                    <div class="flex items-center gap-1 mt-2">
+                                        <div class="h-1 flex-1 bg-dark-700 rounded-full overflow-hidden"><div class="h-full bg-brand-500 progress-bar" style="width:45%"></div></div>
+                                        <span class="text-[0.6rem] text-dark-300">45%</span>
+                                    </div>
+                                </div>
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">Quick coding tip: Python one-liners</p>
+                                    <div class="flex items-center gap-1 mt-2">
+                                        <div class="h-1 flex-1 bg-dark-700 rounded-full overflow-hidden"><div class="h-full bg-brand-500 progress-bar" style="width:20%"></div></div>
+                                        <span class="text-[0.6rem] text-dark-300">20%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Column: Generating -->
+                        <div class="glass-card rounded-2xl p-4 kanban-col">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 rounded-full bg-purple-400 pulse-dot"></div>
+                                    <h3 class="text-sm font-semibold">Generating</h3>
+                                </div>
+                                <span class="text-xs text-dark-200">2</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="pipe-card glass-card rounded-lg p-3 border border-purple-500/20">
+                                    <p class="text-xs font-medium">Morning Motivation Clip</p>
+                                    <p class="text-[0.6rem] text-purple-300 mt-1">Runway ML • 22s / 32s</p>
+                                    <div class="h-1 mt-2 bg-dark-700 rounded-full overflow-hidden"><div class="h-full bg-purple-500 progress-bar" style="width:68%"></div></div>
+                                </div>
+                                <div class="pipe-card glass-card rounded-lg p-3 border border-purple-500/20">
+                                    <p class="text-xs font-medium">Behind-the-Scenes: Neural Art</p>
+                                    <p class="text-[0.6rem] text-purple-300 mt-1">ElevenLabs voice • rendering</p>
+                                    <div class="h-1 mt-2 bg-dark-700 rounded-full overflow-hidden"><div class="h-full bg-purple-500 progress-bar" style="width:35%"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Column: Review -->
+                        <div class="glass-card rounded-2xl p-4 kanban-col">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 rounded-full bg-neon-yellow"></div>
+                                    <h3 class="text-sm font-semibold">Review</h3>
+                                </div>
+                                <span class="text-xs text-dark-200">2</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">3 Productivity Hacks (Explained)</p>
+                                    <div class="flex gap-1 mt-2">
+                                        <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">Safety ✓</span>
+                                        <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">Copyright ✓</span>
+                                    </div>
+                                </div>
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">Quick Coding Tip #47</p>
+                                    <div class="flex gap-1 mt-2">
+                                        <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-yellow/10 text-neon-yellow">Awaiting scan</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Column: Scheduled -->
+                        <div class="glass-card rounded-2xl p-4 kanban-col">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 rounded-full bg-neon-green"></div>
+                                    <h3 class="text-sm font-semibold">Scheduled</h3>
+                                </div>
+                                <span class="text-xs text-dark-200">4</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">Morning Motivation Clip</p>
+                                    <p class="text-[0.6rem] text-neon-green mt-1">TikTok • 08:00</p>
+                                </div>
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">3 Productivity Hacks</p>
+                                    <p class="text-[0.6rem] text-neon-green mt-1">YT Shorts • 10:30</p>
+                                </div>
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">Behind-the-Scenes: Neural Art</p>
+                                    <p class="text-[0.6rem] text-neon-green mt-1">IG Reels • 14:15</p>
+                                </div>
+                                <div class="pipe-card glass-card rounded-lg p-3">
+                                    <p class="text-xs font-medium">Quick Coding Tip #47</p>
+                                    <p class="text-[0.6rem] text-neon-green mt-1">TikTok • 18:00</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TRENDS TAB -->
+                <div id="tab-trends" class="tab-content slide-in">
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="col-span-2 glass-card rounded-2xl p-5">
+                            <h3 class="font-semibold mb-4">Trending Now — Cross-Platform</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-4 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-10 h-10 rounded-lg bg-neon-yellow/10 flex items-center justify-center"><i class="fas fa-fire text-neon-yellow"></i></div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <p class="text-sm font-medium">#AIArt</p>
+                                            <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">+280%</span>
+                                        </div>
+                                        <p class="text-xs text-dark-200">2.4M posts • 6h spike</p>
+                                    </div>
+                                    <button class="text-xs px-3 py-1.5 rounded-lg bg-brand-500/20 text-brand-300 hover:bg-brand-500/30">Create</button>
+                                </div>
+                                <div class="flex items-center gap-4 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-10 h-10 rounded-lg bg-neon-cyan/10 flex items-center justify-center"><i class="fas fa-microchip text-neon-cyan"></i></div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <p class="text-sm font-medium">#PromptEngineering</p>
+                                            <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">+145%</span>
+                                        </div>
+                                        <p class="text-xs text-dark-200">890K posts • 12h steady</p>
+                                    </div>
+                                    <button class="text-xs px-3 py-1.5 rounded-lg bg-brand-500/20 text-brand-300 hover:bg-brand-500/30">Create</button>
+                                </div>
+                                <div class="flex items-center gap-4 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-10 h-10 rounded-lg bg-neon-pink/10 flex items-center justify-center"><i class="fas fa-bolt text-neon-pink"></i></div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <p class="text-sm font-medium">#StudyTok</p>
+                                            <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">+92%</span>
+                                        </div>
+                                        <p class="text-xs text-dark-200">560K posts • rising</p>
+                                    </div>
+                                    <button class="text-xs px-3 py-1.5 rounded-lg bg-brand-500/20 text-brand-300 hover:bg-brand-500/30">Create</button>
+                                </div>
+                                <div class="flex items-center gap-4 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-10 h-10 rounded-lg bg-neon-orange/10 flex items-center justify-center"><i class="fas fa-rocket text-neon-orange"></i></div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <p class="text-sm font-medium">#SpaceX</p>
+                                            <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-yellow/10 text-neon-yellow">+38%</span>
+                                        </div>
+                                        <p class="text-xs text-dark-200">1.1M posts • plateau</p>
+                                    </div>
+                                    <button class="text-xs px-3 py-1.5 rounded-lg bg-brand-500/20 text-brand-300 hover:bg-brand-500/30">Create</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5">
+                            <h3 class="font-semibold mb-4">Engagement Heat</h3>
+                            <canvas id="trendChart" height="220"></canvas>
+                            <div class="mt-4 pt-4 border-t border-dark-500/30">
+                                <p class="text-xs text-dark-200 mb-2">Best posting window</p>
+                                <p class="text-lg font-mono text-brand-300">18:00 – 21:30</p>
+                                <p class="text-[0.65rem] text-dark-300 mt-1">Based on 30d rolling engagement</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card rounded-2xl p-5">
+                        <h3 class="font-semibold mb-4">Topic Momentum (24h)</h3>
+                        <canvas id="momentumChart" height="100"></canvas>
+                    </div>
+                </div>
+
+                <!-- ACCOUNTS TAB -->
+                <div id="tab-accounts" class="tab-content slide-in">
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="glass-card rounded-2xl p-5 hover-lift">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-neon-cyan/30 to-brand-600/30 flex items-center justify-center"><i class="fab fa-tiktok text-xl"></i></div>
+                                    <div>
+                                        <p class="font-medium">@TechVibes</p>
+                                        <p class="text-xs text-dark-200">TikTok</p>
+                                    </div>
+                                </div>
+                                <span class="status-badge px-2 py-1 rounded-full bg-neon-green/10 text-neon-green uppercase">Active</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 mb-3">
+                                <div><p class="text-lg font-bold">124K</p><p class="text-[0.6rem] text-dark-200">Followers</p></div>
+                                <div><p class="text-lg font-bold">4.2%</p><p class="text-[0.6rem] text-dark-200">Engagement</p></div>
+                                <div><p class="text-lg font-bold">3/day</p><p class="text-[0.6rem] text-dark-200">Cadence</p></div>
+                            </div>
+                            <div class="pt-3 border-t border-dark-500/30 flex items-center justify-between">
+                                <span class="text-[0.65rem] text-dark-300">Last posted 12m ago</span>
+                                <button class="text-xs text-brand-400 hover:text-brand-300">Settings</button>
+                            </div>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5 hover-lift">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-neon-red/30 to-neon-orange/30 flex items-center justify-center"><i class="fab fa-youtube text-xl text-neon-red"></i></div>
+                                    <div>
+                                        <p class="font-medium">@MindsetDaily</p>
+                                        <p class="text-xs text-dark-200">YouTube Shorts</p>
+                                    </div>
+                                </div>
+                                <span class="status-badge px-2 py-1 rounded-full bg-neon-green/10 text-neon-green uppercase">Active</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 mb-3">
+                                <div><p class="text-lg font-bold">89K</p><p class="text-[0.6rem] text-dark-200">Subscribers</p></div>
+                                <div><p class="text-lg font-bold">6.1%</p><p class="text-[0.6rem] text-dark-200">Engagement</p></div>
+                                <div><p class="text-lg font-bold">2/day</p><p class="text-[0.6rem] text-dark-200">Cadence</p></div>
+                            </div>
+                            <div class="pt-3 border-t border-dark-500/30 flex items-center justify-between">
+                                <span class="text-[0.65rem] text-dark-300">Last posted 3h ago</span>
+                                <button class="text-xs text-brand-400 hover:text-brand-300">Settings</button>
+                            </div>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5 hover-lift">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-neon-pink/30 to-purple-600/30 flex items-center justify-center"><i class="fab fa-instagram text-xl text-neon-pink"></i></div>
+                                    <div>
+                                        <p class="font-medium">@ArtByNeural</p>
+                                        <p class="text-xs text-dark-200">Instagram Reels</p>
+                                    </div>
+                                </div>
+                                <span class="status-badge px-2 py-1 rounded-full bg-neon-yellow/10 text-neon-yellow uppercase">Cooldown</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 mb-3">
+                                <div><p class="text-lg font-bold">56K</p><p class="text-[0.6rem] text-dark-200">Followers</p></div>
+                                <div><p class="text-lg font-bold">3.8%</p><p class="text-[0.6rem] text-dark-200">Engagement</p></div>
+                                <div><p class="text-lg font-bold">2/day</p><p class="text-[0.6rem] text-dark-200">Cadence</p></div>
+                            </div>
+                            <div class="pt-3 border-t border-dark-500/30 flex items-center justify-between">
+                                <span class="text-[0.65rem] text-dark-300">Next window in 42m</span>
+                                <button class="text-xs text-brand-400 hover:text-brand-300">Settings</button>
+                            </div>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5 hover-lift">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-neon-cyan/30 to-brand-600/30 flex items-center justify-center"><i class="fab fa-tiktok text-xl text-neon-cyan"></i></div>
+                                    <div>
+                                        <p class="font-medium">@DevBytes</p>
+                                        <p class="text-xs text-dark-200">TikTok</p>
+                                    </div>
+                                </div>
+                                <span class="status-badge px-2 py-1 rounded-full bg-neon-green/10 text-neon-green uppercase">Active</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 mb-3">
+                                <div><p class="text-lg font-bold">212K</p><p class="text-[0.6rem] text-dark-200">Followers</p></div>
+                                <div><p class="text-lg font-bold">5.4%</p><p class="text-[0.6rem] text-dark-200">Engagement</p></div>
+                                <div><p class="text-lg font-bold">4/day</p><p class="text-[0.6rem] text-dark-200">Cadence</p></div>
+                            </div>
+                            <div class="pt-3 border-t border-dark-500/30 flex items-center justify-between">
+                                <span class="text-[0.65rem] text-dark-300">Last posted 1h ago</span>
+                                <button class="text-xs text-brand-400 hover:text-brand-300">Settings</button>
+                            </div>
+                        </div>
+                        <button class="glass-card rounded-2xl p-5 border-2 border-dashed border-dark-500/40 hover:border-brand-500/50 transition-colors flex flex-col items-center justify-center text-dark-200 hover:text-brand-300">
+                            <i class="fas fa-plus text-2xl mb-2"></i>
+                            <span class="text-sm">Connect Account</span>
+                            <span class="text-[0.65rem] text-dark-300 mt-1">OAuth flow</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- QUEUE TAB -->
+                <div id="tab-queue" class="tab-content slide-in">
+                    <div class="glass-card rounded-2xl p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold">Post Queue — Next 24 Hours</h3>
+                            <div class="flex gap-2">
+                                <button class="px-3 py-1.5 text-xs rounded-lg bg-brand-500/20 text-brand-300">Timeline</button>
+                                <button class="px-3 py-1.5 text-xs rounded-lg text-dark-200 hover:bg-dark-600/50">Calendar</button>
+                            </div>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute left-16 top-0 bottom-0 w-px timeline-line"></div>
+                            <div class="space-y-4">
+                                <div class="flex items-start gap-4">
+                                    <div class="w-16 text-right pt-3">
+                                        <p class="text-sm font-mono text-brand-300">08:00</p>
+                                        <p class="text-[0.6rem] text-dark-300">in 42m</p>
+                                    </div>
+                                    <div class="relative w-4 flex justify-center pt-3">
+                                        <div class="w-3 h-3 rounded-full bg-brand-500 glow z-10"></div>
+                                    </div>
+                                    <div class="flex-1 glass-card rounded-xl p-4">
+                                        <div class="flex items-start justify-between">
+                                            <div>
+                                                <p class="font-medium">Morning Motivation Clip</p>
+                                                <p class="text-xs text-dark-200 mt-1">@MindsetDaily • TikTok • 28s</p>
+                                            </div>
+                                            <div class="flex gap-1">
+                                                <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">Safety ✓</span>
+                                                <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">Copyright ✓</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-4">
+                                    <div class="w-16 text-right pt-3">
+                                        <p class="text-sm font-mono text-brand-300">10:30</p>
+                                        <p class="text-[0.6rem] text-dark-300">in 3h 12m</p>
+                                    </div>
+                                    <div class="relative w-4 flex justify-center pt-3">
+                                        <div class="w-3 h-3 rounded-full bg-neon-red glow z-10"></div>
+                                    </div>
+                                    <div class="flex-1 glass-card rounded-xl p-4">
+                                        <div class="flex items-start justify-between">
+                                            <div>
+                                                <p class="font-medium">3 Productivity Hacks (Explained)</p>
+                                                <p class="text-xs text-dark-200 mt-1">@TechVibes • YouTube Shorts • 44s</p>
+                                            </div>
+                                            <div class="flex gap-1">
+                                                <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">Safety ✓</span>
+                                                <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">Copyright ✓</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-4">
+                                    <div class="w-16 text-right pt-3">
+                                        <p class="text-sm font-mono text-brand-300">14:15</p>
+                                        <p class="text-[0.6rem] text-dark-300">in 6h 57m</p>
+                                    </div>
+                                    <div class="relative w-4 flex justify-center pt-3">
+                                        <div class="w-3 h-3 rounded-full bg-neon-pink glow z-10"></div>
+                                    </div>
+                                    <div class="flex-1 glass-card rounded-xl p-4">
+                                        <div class="flex items-start justify-between">
+                                            <div>
+                                                <p class="font-medium">Behind-the-Scenes: Neural Art</p>
+                                                <p class="text-xs text-dark-200 mt-1">@ArtByNeural • Instagram Reels • 51s</p>
+                                            </div>
+                                            <div class="flex gap-1">
+                                                <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">Safety ✓</span>
+                                                <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-yellow/10 text-neon-yellow">Copyright pending</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-4">
+                                    <div class="w-16 text-right pt-3">
+                                        <p class="text-sm font-mono text-brand-300">18:00</p>
+                                        <p class="text-[0.6rem] text-dark-300">in 10h 42m</p>
+                                    </div>
+                                    <div class="relative w-4 flex justify-center pt-3">
+                                        <div class="w-3 h-3 rounded-full bg-neon-cyan glow z-10"></div>
+                                    </div>
+                                    <div class="flex-1 glass-card rounded-xl p-4">
+                                        <div class="flex items-start justify-between">
+                                            <div>
+                                                <p class="font-medium">Quick Coding Tip #47</p>
+                                                <p class="text-xs text-dark-200 mt-1">@DevBytes • TikTok • 19s</p>
+                                            </div>
+                                            <div class="flex gap-1">
+                                                <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">Safety ✓</span>
+                                                <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">Copyright ✓</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-4">
+                                    <div class="w-16 text-right pt-3">
+                                        <p class="text-sm font-mono text-brand-300">21:00</p>
+                                        <p class="text-[0.6rem] text-dark-300">in 13h 42m</p>
+                                    </div>
+                                    <div class="relative w-4 flex justify-center pt-3">
+                                        <div class="w-3 h-3 rounded-full bg-brand-500 glow z-10"></div>
+                                    </div>
+                                    <div class="flex-1 glass-card rounded-xl p-4">
+                                        <div class="flex items-start justify-between">
+                                            <div>
+                                                <p class="font-medium">Evening Reflection Prompt</p>
+                                                <p class="text-xs text-dark-200 mt-1">@MindsetDaily • TikTok • 24s</p>
+                                            </div>
+                                            <div class="flex gap-1">
+                                                <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-dark-500/20 text-dark-300">Queued</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SAFETY TAB -->
+                <div id="tab-safety" class="tab-content slide-in">
+                    <div class="grid grid-cols-4 gap-4 mb-6">
+                        <div class="glass-card rounded-2xl p-5 glow-green">
+                            <div class="w-10 h-10 rounded-xl bg-neon-green/10 flex items-center justify-center mb-3"><i class="fas fa-shield-alt text-neon-green"></i></div>
+                            <p class="text-2xl font-bold text-neon-green">100%</p>
+                            <p class="text-xs text-dark-200 mt-1">Compliance Rate</p>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5">
+                            <div class="w-10 h-10 rounded-xl bg-brand-500/10 flex items-center justify-center mb-3"><i class="fas fa-file-shield text-brand-400"></i></div>
+                            <p class="text-2xl font-bold">247</p>
+                            <p class="text-xs text-dark-200 mt-1">Copyright Scans</p>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5">
+                            <div class="w-10 h-10 rounded-xl bg-neon-cyan/10 flex items-center justify-center mb-3"><i class="fas fa-eye-slash text-neon-cyan"></i></div>
+                            <p class="text-2xl font-bold">312</p>
+                            <p class="text-xs text-dark-200 mt-1">Content Moderations</p>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5">
+                            <div class="w-10 h-10 rounded-xl bg-neon-yellow/10 flex items-center justify-center mb-3"><i class="fas fa-triangle-exclamation text-neon-yellow"></i></div>
+                            <p class="text-2xl font-bold">4</p>
+                            <p class="text-xs text-dark-200 mt-1">Auto-Corrected</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="glass-card rounded-2xl p-5">
+                            <h3 class="font-semibold mb-4">Active Safety Rules</h3>
+                            <div class="space-y-3">
+                                <label class="flex items-center justify-between p-3 rounded-xl bg-dark-800/50 border border-dark-500/20 cursor-pointer">
+                                    <div>
+                                        <p class="text-sm font-medium">Copyright triple-check</p>
+                                        <p class="text-xs text-dark-200">Audio + visuals + fonts before publish</p>
+                                    </div>
+                                    <div class="w-10 h-6 rounded-full bg-neon-green flex items-center px-0.5 justify-end"><div class="w-5 h-5 rounded-full bg-white"></div></div>
+                                </label>
+                                <label class="flex items-center justify-between p-3 rounded-xl bg-dark-800/50 border border-dark-500/20 cursor-pointer">
+                                    <div>
+                                        <p class="text-sm font-medium">AI-content disclosure</p>
+                                        <p class="text-xs text-dark-200">Append platform-required label</p>
+                                    </div>
+                                    <div class="w-10 h-6 rounded-full bg-neon-green flex items-center px-0.5 justify-end"><div class="w-5 h-5 rounded-full bg-white"></div></div>
+                                </label>
+                                <label class="flex items-center justify-between p-3 rounded-xl bg-dark-800/50 border border-dark-500/20 cursor-pointer">
+                                    <div>
+                                        <p class="text-sm font-medium">Sensitive-topic filter</p>
+                                        <p class="text-xs text-dark-200">Block minors / medical / financial advice</p>
+                                    </div>
+                                    <div class="w-10 h-6 rounded-full bg-neon-green flex items-center px-0.5 justify-end"><div class="w-5 h-5 rounded-full bg-white"></div></div>
+                                </label>
+                                <label class="flex items-center justify-between p-3 rounded-xl bg-dark-800/50 border border-dark-500/20 cursor-pointer">
+                                    <div>
+                                        <p class="text-sm font-medium">Rate-limit guard</p>
+                                        <p class="text-xs text-dark-200">Respect per-platform posting cadence</p>
+                                    </div>
+                                    <div class="w-10 h-6 rounded-full bg-neon-green flex items-center px-0.5 justify-end"><div class="w-5 h-5 rounded-full bg-white"></div></div>
+                                </label>
+                                <label class="flex items-center justify-between p-3 rounded-xl bg-dark-800/50 border border-dark-500/20 cursor-pointer">
+                                    <div>
+                                        <p class="text-sm font-medium">Human review threshold</p>
+                                        <p class="text-xs text-dark-200">Confidence &lt; 85% → hold for review</p>
+                                    </div>
+                                    <div class="w-10 h-6 rounded-full bg-dark-500 flex items-center px-0.5 justify-start"><div class="w-5 h-5 rounded-full bg-dark-200"></div></div>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5">
+                            <h3 class="font-semibold mb-4">Recent Audits</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-start gap-3 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-8 h-8 rounded-lg bg-neon-green/10 flex items-center justify-center flex-shrink-0"><i class="fas fa-check text-neon-green text-xs"></i></div>
+                                    <div class="flex-1">
+                                        <p class="text-sm">"5 AI Tools" — Full audit passed</p>
+                                        <p class="text-[0.65rem] text-dark-300 mt-0.5">Audio CC-BY • Visuals AI-generated • Disclosure added</p>
+                                    </div>
+                                    <span class="text-[0.65rem] text-dark-300">2m</span>
+                                </div>
+                                <div class="flex items-start gap-3 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-8 h-8 rounded-lg bg-neon-yellow/10 flex items-center justify-center flex-shrink-0"><i class="fas fa-wand-magic-sparkles text-neon-yellow text-xs"></i></div>
+                                    <div class="flex-1">
+                                        <p class="text-sm">Auto-correction — swapped background track</p>
+                                        <p class="text-[0.65rem] text-dark-300 mt-0.5">Original clip matched Universal Music library</p>
+                                    </div>
+                                    <span class="text-[0.65rem] text-dark-300">18m</span>
+                                </div>
+                                <div class="flex items-start gap-3 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-8 h-8 rounded-lg bg-neon-green/10 flex items-center justify-center flex-shrink-0"><i class="fas fa-check text-neon-green text-xs"></i></div>
+                                    <div class="flex-1">
+                                        <p class="text-sm">"Morning Motivation" — Passed</p>
+                                        <p class="text-[0.65rem] text-dark-300 mt-0.5">All rules green</p>
+                                    </div>
+                                    <span class="text-[0.65rem] text-dark-300">1h</span>
+                                </div>
+                                <div class="flex items-start gap-3 p-3 rounded-xl bg-dark-800/50 border border-dark-500/20">
+                                    <div class="w-8 h-8 rounded-lg bg-neon-cyan/10 flex items-center justify-center flex-shrink-0"><i class="fas fa-eye text-neon-cyan text-xs"></i></div>
+                                    <div class="flex-1">
+                                        <p class="text-sm">Human review — "Financial Tips" skipped</p>
+                                        <p class="text-[0.65rem] text-dark-300 mt-0.5">Topic filter matched; escalated to reviewer</p>
+                                    </div>
+                                    <span class="text-[0.65rem] text-dark-300">3h</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- JSON TAB -->
+                <div id="tab-json" class="tab-content slide-in">
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="col-span-2 glass-card rounded-2xl p-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 class="font-semibold">API Payload — POST /content/publish</h3>
+                                    <p class="text-xs text-dark-200 mt-0.5">Preview of the request body dispatched to the backend</p>
+                                </div>
+                                <button onclick="copyPayload()" class="text-xs px-3 py-1.5 rounded-lg bg-brand-500/20 text-brand-300 hover:bg-brand-500/30 flex items-center gap-2">
+                                    <i class="fas fa-copy"></i>
+                                    <span id="copy-label">Copy</span>
+                                </button>
+                            </div>
+                            <pre id="payload-block" class="font-mono text-xs bg-dark-950/80 border border-dark-500/30 rounded-xl p-4 overflow-x-auto text-dark-100"></pre>
+                        </div>
+                        <div class="glass-card rounded-2xl p-5">
+                            <h3 class="font-semibold mb-4">Endpoint</h3>
+                            <div class="space-y-3 text-xs">
+                                <div>
+                                    <p class="text-dark-200">Method</p>
+                                    <p class="font-mono text-neon-green mt-1">POST</p>
+                                </div>
+                                <div>
+                                    <p class="text-dark-200">URL</p>
+                                    <p class="font-mono text-brand-300 mt-1 break-all">https://api.autoclip.ai/v1/content/publish</p>
+                                </div>
+                                <div>
+                                    <p class="text-dark-200">Auth</p>
+                                    <p class="font-mono text-dark-100 mt-1">Bearer &lt;token&gt;</p>
+                                </div>
+                                <div class="pt-3 border-t border-dark-500/30">
+                                    <p class="text-dark-200 mb-2">Expected 200 OK</p>
+                                    <pre class="font-mono text-[0.65rem] bg-dark-950/80 border border-dark-500/30 rounded-lg p-3 text-dark-100">{
+  "job_id": "job_a3f9",
+  "status": "queued",
+  "scheduled_for": "2026-08-15T08:00:00Z"
+}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- CREATE MODAL -->
+    <div id="create-modal" class="fixed inset-0 z-50 modal-backdrop hidden items-center justify-center p-6">
+        <div class="glass rounded-2xl w-full max-w-lg p-6 slide-in">
+            <div class="flex items-center justify-between mb-5">
+                <div>
+                    <h3 class="text-lg font-bold">New Content</h3>
+                    <p class="text-xs text-dark-200 mt-0.5">Queue a new video for the pipeline</p>
+                </div>
+                <button onclick="closeCreateModal()" class="text-dark-200 hover:text-dark-100"><i class="fas fa-times"></i></button>
+            </div>
+            <form onsubmit="submitCreate(event)" class="space-y-4">
+                <div>
+                    <label class="text-xs text-dark-200">Topic / prompt</label>
+                    <input required type="text" placeholder="e.g. 5 AI tools that will blow your mind" class="w-full mt-1 px-3 py-2 rounded-xl border border-dark-500/30 text-sm focus:outline-none focus:border-brand-500/50">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-dark-200">Account</label>
+                        <select class="w-full mt-1 px-3 py-2 rounded-xl border border-dark-500/30 text-sm focus:outline-none focus:border-brand-500/50">
+                            <option>@TechVibes (TikTok)</option>
+                            <option>@MindsetDaily (YouTube Shorts)</option>
+                            <option>@ArtByNeural (Instagram Reels)</option>
+                            <option>@DevBytes (TikTok)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-dark-200">Duration</label>
+                        <select class="w-full mt-1 px-3 py-2 rounded-xl border border-dark-500/30 text-sm focus:outline-none focus:border-brand-500/50">
+                            <option>15s</option>
+                            <option selected>30s</option>
+                            <option>45s</option>
+                            <option>60s</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-dark-200">Style notes</label>
+                    <textarea rows="3" placeholder="Tone, pacing, camera style..." class="w-full mt-1 px-3 py-2 rounded-xl border border-dark-500/30 text-sm focus:outline-none focus:border-brand-500/50"></textarea>
+                </div>
+                <div class="flex items-center gap-3 pt-3 border-t border-dark-500/30">
+                    <label class="flex items-center gap-2 text-xs text-dark-200 cursor-pointer">
+                        <input type="checkbox" checked class="rounded border-dark-500/50"> Run safety checks
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-dark-200 cursor-pointer">
+                        <input type="checkbox" checked class="rounded border-dark-500/50"> Auto-schedule
+                    </label>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeCreateModal()" class="px-4 py-2 text-sm rounded-xl text-dark-200 hover:bg-dark-600/50">Cancel</button>
+                    <button type="submit" class="px-4 py-2 text-sm rounded-xl bg-gradient-to-r from-brand-600 to-purple-600 hover:opacity-90 flex items-center gap-2">
+                        <i class="fas fa-bolt"></i>
+                        <span>Queue</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const tabMeta = {
+            dashboard: ['Dashboard Overview', 'Real-time content production metrics'],
+            pipeline:  ['Content Pipeline', 'Kanban view of every video in flight'],
+            trends:    ['Trend Analysis', 'What is heating up across TikTok, YT Shorts, and IG Reels'],
+            accounts:  ['Account Manager', 'Connected creator accounts and their cadence'],
+            queue:     ['Post Queue', 'Every scheduled post for the next 24 hours'],
+            safety:    ['Safety & Compliance', 'Copyright, moderation, and platform-rule enforcement'],
+            json:      ['API Payload', 'Preview the request body dispatched to the backend'],
+        };
+
+        function switchTab(name) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + name).classList.add('active');
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('tab-active');
+                btn.classList.add('text-dark-200');
+                btn.querySelector('i').classList.remove('text-brand-400');
+            });
+            const active = document.querySelector(`[data-tab="${name}"]`);
+            active.classList.add('tab-active');
+            active.classList.remove('text-dark-200');
+            active.querySelector('i').classList.add('text-brand-400');
+
+            const [title, subtitle] = tabMeta[name];
+            document.getElementById('page-title').textContent = title;
+            document.getElementById('page-subtitle').textContent = subtitle;
+        }
+
+        function openCreateModal() {
+            const m = document.getElementById('create-modal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+        function closeCreateModal() {
+            const m = document.getElementById('create-modal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        }
+        function submitCreate(e) {
+            e.preventDefault();
+            closeCreateModal();
+            switchTab('pipeline');
+        }
+        function copyPayload() {
+            const text = document.getElementById('payload-block').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const label = document.getElementById('copy-label');
+                label.textContent = 'Copied';
+                setTimeout(() => label.textContent = 'Copy', 1500);
+            });
+        }
+
+        // Charts
+        const gridColor = 'rgba(148, 163, 184, 0.08)';
+        const tickColor = '#94a3b8';
+        Chart.defaults.color = tickColor;
+        Chart.defaults.borderColor = gridColor;
+
+        new Chart(document.getElementById('performanceChart'), {
+            type: 'line',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [
+                    { label: 'Views', data: [180, 210, 260, 300, 340, 410, 480], borderColor: '#818cf8', backgroundColor: 'rgba(129, 140, 248, 0.1)', tension: 0.4, fill: true, borderWidth: 2 },
+                    { label: 'Engagement', data: [12, 18, 22, 25, 28, 34, 40], borderColor: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)', tension: 0.4, fill: true, borderWidth: 2 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } } },
+                scales: {
+                    x: { grid: { color: gridColor }, ticks: { font: { size: 10 } } },
+                    y: { grid: { color: gridColor }, ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('platformChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['TikTok', 'YT Shorts', 'IG Reels'],
+                datasets: [{ data: [52, 28, 20], backgroundColor: ['#06b6d4', '#ef4444', '#ec4899'], borderWidth: 0 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '65%',
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 }, padding: 12 } } }
+            }
+        });
+
+        // Trend + momentum charts only when trends tab first activated — but init now (canvas exists in DOM)
+        new Chart(document.getElementById('trendChart'), {
+            type: 'bar',
+            data: {
+                labels: ['00', '04', '08', '12', '16', '20'],
+                datasets: [{ label: 'Engagement', data: [8, 12, 24, 32, 42, 68], backgroundColor: 'rgba(129, 140, 248, 0.5)', borderRadius: 4 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: { grid: { color: gridColor }, ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('momentumChart'), {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 24}, (_, i) => `${i}h`),
+                datasets: [
+                    { label: '#AIArt', data: [10,12,14,15,18,22,28,35,48,62,78,92,110,128,145,160,178,192,210,232,255,278,296,310], borderColor: '#eab308', tension: 0.4, borderWidth: 2, pointRadius: 0 },
+                    { label: '#PromptEngineering', data: [45,48,52,55,58,60,64,68,72,78,82,88,92,96,102,108,112,118,122,128,132,138,142,145], borderColor: '#06b6d4', tension: 0.4, borderWidth: 2, pointRadius: 0 },
+                    { label: '#StudyTok', data: [20,22,24,25,28,32,35,38,42,46,50,54,58,62,66,68,72,74,78,82,86,88,90,92], borderColor: '#ec4899', tension: 0.4, borderWidth: 2, pointRadius: 0 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } } },
+                scales: {
+                    x: { grid: { color: gridColor }, ticks: { font: { size: 9 } } },
+                    y: { grid: { color: gridColor }, ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+
+        // JSON payload
+        const payload = {
+            job_id: "job_a3f9",
+            account: {
+                handle: "@MindsetDaily",
+                platform: "tiktok"
+            },
+            content: {
+                title: "Morning Motivation Clip",
+                prompt: "3 mindset shifts that build resilience — energetic, uplifting, quick cuts",
+                duration_seconds: 28,
+                aspect_ratio: "9:16",
+                resolution: "1080p"
+            },
+            generation: {
+                video_model: "runway-gen-3",
+                voice_model: "elevenlabs-v2",
+                caption_style: "kinetic-bold"
+            },
+            safety: {
+                copyright_check: "triple",
+                moderation: "strict",
+                ai_disclosure: true,
+                sensitive_topic_filter: true
+            },
+            schedule: {
+                strategy: "auto",
+                scheduled_for: "2026-08-15T08:00:00Z",
+                timezone: "UTC"
+            }
+        };
+        document.getElementById('payload-block').textContent = JSON.stringify(payload, null, 2);
+    </script>
+</body>
+</html>
